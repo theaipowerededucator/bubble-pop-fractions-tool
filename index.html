@@ -1,0 +1,509 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Bubble Pop Game - Final Version</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Fredoka+One&family=Nunito:wght@700&display=swap" rel="stylesheet">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/tone/14.7.77/Tone.js"></script>
+    <style>
+        /* FIX: Re-introduce padding in a mobile-friendly way */
+        html, body {
+            height: 100%;
+            margin: 0;
+            padding: 0;
+            overflow: hidden;
+        }
+
+        body {
+            font-family: 'Nunito', sans-serif;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            background-color: #f0f8ff;
+            padding: 15px; /* Add padding around the entire game */
+        }
+        
+        * {
+            box-sizing: border-box;
+        }
+
+        /* Main wrapper for the entire UI */
+        #ui-wrapper {
+            width: 100%;
+            height: 100%;
+            max-width: 800px;
+            max-height: 700px;
+            display: flex;
+            flex-direction: column;
+            background: #fff;
+            border-radius: 15px;
+            box-shadow: 0 10px 20px rgba(0,0,0,0.2);
+            border: 3px solid #4682b4;
+        }
+        
+        /* Header for the main title, shown on start screen */
+        #main-title-header {
+            padding: 10px;
+            text-align: center;
+            border-bottom: 3px solid #4682b4;
+        }
+
+        #main-title-header h1 {
+            font-family: 'Fredoka One', cursive;
+            font-size: 3.5em;
+            color: #4682b4; /* SteelBlue to match the border */
+            text-shadow: 2px 2px 0px #e0e0e0;
+            margin: 0;
+        }
+
+        /* The info bar at the top of the game */
+        #game-info {
+            display: flex;
+            justify-content: space-around;
+            background-color: #4682b4;
+            color: white;
+            padding: 10px;
+            font-size: 18px;
+            text-align: center;
+            flex-shrink: 0; /* Prevents this bar from shrinking */
+        }
+        
+        /* Instruction bar styling */
+        #instruction-bar {
+            padding: 8px;
+            text-align: center;
+            font-size: 20px;
+            font-weight: bold;
+            flex-shrink: 0;
+            transition: background-color 0.5s;
+        }
+        
+        .least-to-greatest {
+            background-color: #f44336; /* Red */
+            color: white;
+        }
+        
+        .greatest-to-least {
+            background-color: #4CAF50; /* Green */
+            color: black;
+        }
+
+        /* The main container for the game area */
+        #game-container {
+            position: relative;
+            flex-grow: 1; /* Takes up remaining space */
+            background-color: #87ceeb; /* SkyBlue background */
+            overflow: hidden; /* Keeps bubbles inside */
+            transition: background-color 1s ease;
+        }
+
+        /* Styling for each bubble */
+        .bubble {
+            position: absolute;
+            border-radius: 50%;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            color: white;
+            font-weight: bold;
+            cursor: pointer;
+            user-select: none;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.5);
+            transition: transform 0.1s ease-out;
+            background-image: radial-gradient(circle at 30% 30%, white, rgba(255,255,255,0) 70%);
+            animation: pulse 2s infinite ease-in-out;
+        }
+        
+        @keyframes pulse {
+            0%, 100% { transform: scale(1); }
+            50% { transform: scale(1.05); }
+        }
+
+        .bubble:hover {
+            transform: scale(1.15);
+        }
+        
+        .bubble.popped {
+            animation: pop 0.3s ease-out forwards;
+        }
+
+        @keyframes pop {
+            0% { transform: scale(1); opacity: 1; }
+            100% { transform: scale(1.5); opacity: 0; }
+        }
+        
+        .particle {
+            position: absolute;
+            width: 10px;
+            height: 10px;
+            background: white;
+            border-radius: 50%;
+            pointer-events: none;
+            z-index: 5;
+            opacity: 1;
+        }
+
+        /* Renamed for clarity, now just holds the start button */
+        #start-button-container {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            display: flex;
+            flex-direction: column; /* NEW: Stack items vertically */
+            justify-content: center;
+            align-items: center;
+            z-index: 15;
+        }
+
+        #start-button {
+            padding: 20px 40px;
+            font-size: 24px;
+            cursor: pointer;
+            border-radius: 15px;
+            border: none;
+            background-color: #4CAF50;
+            color: white;
+            box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+        }
+        
+        /* NEW: Container for start screen stats */
+        #start-screen-stats {
+            margin-top: 25px;
+            color: white;
+            font-size: 22px;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.7);
+            text-align: center;
+        }
+
+        .message {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            color: white;
+            font-size: 36px;
+            font-weight: bold;
+            text-shadow: 3px 3px 6px black;
+            display: none;
+            z-index: 20;
+            text-align: center;
+        }
+
+    </style>
+</head>
+<body>
+
+    <div id="ui-wrapper">
+        <div id="main-title-header">
+             <h1>Bubble Pop!</h1>
+        </div>
+        <div id="game-info">
+            <div id="level-display">Level: 1</div>
+            <div id="score-display">Score: 0</div>
+            <div id="timer-display">Time: --</div>
+            <div id="highscore-display">High Score: 0</div>
+        </div>
+        <div id="instruction-bar"></div>
+        <div id="game-container">
+            <div id="start-button-container">
+                <button id="start-button">Start</button>
+                <!-- NEW: Stats on the start screen -->
+                <div id="start-screen-stats">
+                    <div id="start-highscore">High Score: 0</div>
+                    <div id="start-highest-level">Highest Level: 1</div>
+                </div>
+            </div>
+            <div id="message-display" class="message"></div>
+        </div>
+    </div>
+
+    <script>
+        // Game elements from the DOM
+        const gameContainer = document.getElementById('game-container');
+        const mainTitleHeader = document.getElementById('main-title-header');
+        const gameInfo = document.getElementById('game-info');
+        const instructionBar = document.getElementById('instruction-bar');
+        const levelDisplay = document.getElementById('level-display');
+        const scoreDisplay = document.getElementById('score-display');
+        const timerDisplay = document.getElementById('timer-display');
+        const highscoreDisplay = document.getElementById('highscore-display');
+        const startButtonContainer = document.getElementById('start-button-container');
+        const startButton = document.getElementById('start-button');
+        const startHighscore = document.getElementById('start-highscore'); // NEW
+        const startHighestLevel = document.getElementById('start-highest-level'); // NEW
+        const messageDisplay = document.getElementById('message-display');
+        
+        // Game state variables
+        let currentNumbers = [];
+        let sortedNumbers = [];
+        let isGreatestToLeast = false;
+        let gameInProgress = false;
+        let level = 1;
+        let bubbles = [];
+        let animationFrameId;
+        
+        let currentScore = 0;
+        let highScore = 0;
+        let highestLevel = 1; // NEW
+        let levelTimer;
+        let timeLeft;
+
+        const bubbleColors = ['#ff6347', '#ffd700', '#32cd32', '#1e90ff', '#9370db', '#ff4500', '#20b2aa'];
+        const backgroundColors = ['#87ceeb', '#98fb98', '#dda0dd', '#f0e68c', '#add8e6'];
+        
+        const synth = new Tone.PolySynth(Tone.Synth).toDestination();
+        const popSound = () => synth.triggerAttackRelease("C5", "8n");
+        const winSound = () => {
+            const now = Tone.now();
+            synth.triggerAttackRelease("C5", "8n", now);
+            synth.triggerAttackRelease("E5", "8n", now + 0.2);
+            synth.triggerAttackRelease("G5", "8n", now + 0.4);
+        };
+        const errorSound = () => synth.triggerAttackRelease("A2", "8n");
+        
+        document.body.addEventListener('click', () => Tone.start(), { once: true });
+
+        function initializeGame() {
+            highScore = localStorage.getItem('bubblePopHighScore') || 0;
+            highestLevel = localStorage.getItem('bubblePopHighestLevel') || 1; // NEW
+            updateDisplays();
+            mainTitleHeader.style.display = 'block';
+            gameInfo.style.display = 'none';
+            instructionBar.style.display = 'none';
+            startButtonContainer.style.display = 'flex';
+        }
+
+        startButton.addEventListener('click', () => {
+            gameInProgress = true;
+            startButtonContainer.style.display = 'none';
+            mainTitleHeader.style.display = 'none';
+            messageDisplay.style.display = 'none';
+            gameInfo.style.display = 'flex';
+            instructionBar.style.display = 'block';
+            level = 1;
+            currentScore = 0;
+            startGame();
+        });
+
+        function startGame() {
+            clearBubbles();
+            updateDisplays();
+            gameContainer.style.backgroundColor = backgroundColors[(level - 1) % backgroundColors.length];
+
+            const numBubbles = Math.min(3 + level, 10); 
+            const maxNumber = 10 + (level * 5);
+            
+            generateNumbers(numBubbles, 1, maxNumber);
+            isGreatestToLeast = Math.random() < 0.5;
+            
+            instructionBar.classList.remove('least-to-greatest', 'greatest-to-least');
+            if (isGreatestToLeast) {
+                sortedNumbers = [...currentNumbers].sort((a, b) => b - a);
+                instructionBar.textContent = 'GREATEST to LEAST';
+                instructionBar.classList.add('greatest-to-least');
+            } else {
+                sortedNumbers = [...currentNumbers].sort((a, b) => a - b);
+                instructionBar.textContent = 'LEAST to GREATEST';
+                instructionBar.classList.add('least-to-greatest');
+            }
+
+            displayBubbles();
+            startTimer();
+            gameLoop();
+        }
+
+        function generateNumbers(count, min, max) {
+            currentNumbers = [];
+            let numbers = new Set();
+            while (numbers.size < count) {
+                numbers.add(Math.floor(Math.random() * (max - min + 1)) + min);
+            }
+            currentNumbers = Array.from(numbers);
+        }
+
+        function displayBubbles() {
+            bubbles = []; 
+            currentNumbers.forEach(num => {
+                const bubbleElement = document.createElement('div');
+                bubbleElement.classList.add('bubble');
+                bubbleElement.textContent = num;
+                
+                const containerRect = gameContainer.getBoundingClientRect();
+                const bubbleSize = Math.floor(Math.random() * 41) + 50;
+
+                const bubble = {
+                    element: bubbleElement,
+                    x: Math.random() * (containerRect.width - bubbleSize),
+                    y: Math.random() * (containerRect.height - bubbleSize),
+                    dx: (Math.random() - 0.5) * (1 + level * 0.1),
+                    dy: (Math.random() - 0.5) * (1 + level * 0.1),
+                    size: bubbleSize,
+                    color: bubbleColors[Math.floor(Math.random() * bubbleColors.length)]
+                };
+                
+                bubbleElement.style.width = `${bubble.size}px`;
+                bubbleElement.style.height = `${bubble.size}px`;
+                bubbleElement.style.fontSize = `${bubble.size * 0.4}px`;
+                bubbleElement.style.backgroundColor = bubble.color;
+                bubbleElement.style.left = `${bubble.x}px`;
+                bubbleElement.style.top = `${bubble.y}px`;
+
+                bubbleElement.addEventListener('click', handleBubblePop);
+                gameContainer.appendChild(bubbleElement);
+                bubbles.push(bubble);
+            });
+        }
+
+        function handleBubblePop(event) {
+            if (!gameInProgress) return;
+
+            const poppedNumber = parseInt(event.target.textContent);
+            
+            if (poppedNumber === sortedNumbers[0]) {
+                popSound();
+                currentScore += 100;
+                updateDisplays();
+                createParticles(event.clientX, event.clientY);
+                event.target.classList.add('popped');
+                
+                setTimeout(() => {
+                    if(event.target.parentElement) event.target.remove();
+                }, 300);
+
+                bubbles = bubbles.filter(b => b.element !== event.target);
+                sortedNumbers.shift();
+
+                if (sortedNumbers.length === 0) {
+                    clearInterval(levelTimer);
+                    currentScore += timeLeft * 10;
+                    
+                    if (level >= highestLevel) {
+                        highestLevel = level + 1;
+                        localStorage.setItem('bubblePopHighestLevel', highestLevel);
+                    }
+                    
+                    level++;
+                    winSound();
+                    showMessage(`+${timeLeft * 10} Time Bonus!`, '#ffd700');
+                    gameInProgress = false;
+                    cancelAnimationFrame(animationFrameId);
+                    setTimeout(() => {
+                        messageDisplay.style.display = 'none';
+                        gameInProgress = true;
+                        startGame();
+                    }, 2000);
+                }
+            } else {
+                errorSound();
+                gameOver();
+            }
+        }
+        
+        function createParticles(x, y) {
+            const containerRect = gameContainer.getBoundingClientRect();
+            for (let i = 0; i < 15; i++) {
+                const particle = document.createElement('div');
+                particle.classList.add('particle');
+                particle.style.left = `${x - containerRect.left}px`;
+                particle.style.top = `${y - containerRect.top}px`;
+                const angle = Math.random() * Math.PI * 2;
+                const speed = Math.random() * 5 + 2;
+                const dx = Math.cos(angle) * speed;
+                const dy = Math.sin(angle) * speed;
+                gameContainer.appendChild(particle);
+                let life = 100;
+                function animateParticle() {
+                    particle.style.left = `${parseFloat(particle.style.left) + dx}px`;
+                    particle.style.top = `${parseFloat(particle.style.top) + dy}px`;
+                    particle.style.opacity = life / 100;
+                    life--;
+                    if (life > 0) requestAnimationFrame(animateParticle);
+                    else particle.remove();
+                }
+                animateParticle();
+            }
+        }
+        
+        function clearBubbles() {
+            bubbles.forEach(bubble => bubble.element.remove());
+            bubbles = [];
+        }
+
+        function gameLoop() {
+            const containerRect = gameContainer.getBoundingClientRect();
+            bubbles.forEach(bubble => {
+                bubble.x += bubble.dx;
+                bubble.y += bubble.dy;
+                if (bubble.x + bubble.size >= containerRect.width || bubble.x <= 0) bubble.dx *= -1;
+                if (bubble.y + bubble.size >= containerRect.height || bubble.y <= 0) bubble.dy *= -1;
+                bubble.element.style.left = `${bubble.x}px`;
+                bubble.element.style.top = `${bubble.y}px`;
+            });
+            if (gameInProgress) animationFrameId = requestAnimationFrame(gameLoop);
+        }
+
+        function showMessage(text, color) {
+            messageDisplay.textContent = text;
+            messageDisplay.style.color = color;
+            messageDisplay.style.display = 'block';
+        }
+
+        function startTimer() {
+            timeLeft = 20;
+            timerDisplay.textContent = `Time: ${timeLeft}`;
+            clearInterval(levelTimer);
+            levelTimer = setInterval(() => {
+                timeLeft--;
+                timerDisplay.textContent = `Time: ${timeLeft}`;
+                if (timeLeft <= 0) {
+                    clearInterval(levelTimer);
+                    gameOver();
+                }
+            }, 1000);
+        }
+
+        function updateDisplays() {
+            // In-game displays
+            levelDisplay.textContent = `Level: ${level}`;
+            scoreDisplay.textContent = `Score: ${currentScore}`;
+            highscoreDisplay.textContent = `High Score: ${highScore}`;
+            
+            // Start screen displays
+            startHighscore.textContent = `High Score: ${highScore}`;
+            startHighestLevel.textContent = `Highest Level: ${highestLevel}`;
+        }
+
+        function gameOver() {
+            gameInProgress = false;
+            cancelAnimationFrame(animationFrameId);
+            clearInterval(levelTimer);
+            
+            if (currentScore > highScore) {
+                highScore = currentScore;
+                localStorage.setItem('bubblePopHighScore', highScore);
+                showMessage(`New High Score: ${highScore}`, '#4CAF50');
+            } else {
+                showMessage('Game Over!', '#f44336');
+            }
+
+            setTimeout(() => {
+                clearBubbles();
+                mainTitleHeader.style.display = 'block';
+                startButtonContainer.style.display = 'flex';
+                gameInfo.style.display = 'none';
+                instructionBar.style.display = 'none';
+                messageDisplay.style.display = 'none';
+                initializeGame();
+            }, 3000);
+        }
+
+        initializeGame();
+
+    </script>
+</body>
+</html>
